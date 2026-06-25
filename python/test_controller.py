@@ -1,19 +1,13 @@
-class FakeArduino:
-    def write(self, data):
-        print("Arduino received:", data.decode().strip())
-
-
 class ArduinoController:
     def __init__(self):
-        self.serial = FakeArduino()
+        print("ArduinoController initialized (simulation mode)")
 
-    def start(self, angle):
-        self.serial.write(f"{angle}\n".encode())
+    def start(self, min_angle, max_angle, time_between):
+        print(f"Wave config → min:{min_angle}, max:{max_angle}, period:{time_between}")
 
 
-# test
+# test run
 arduino = ArduinoController()
 
-arduino.start(90)
-arduino.start(45)
-arduino.start(120)
+arduino.start(20, 40, 1000)
+arduino.start(10, 60, 500)
