@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+    <title>Hydrofoil SCADA System</title>
+
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+
+    <style>
+
+        body {
+            margin: 0;
+            font-family: Arial;
+            background: #0b1220;
+            color: white;
+        }
+
+        .topbar {
+            background: #111827;
+            padding: 12px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        button {
+            padding: 8px 12px;
+            cursor: pointer;
+            border: none;
+            border-radius: 4px;
+        }
+
+        .start { background: #22c55e; color: black; }
+        .stop { background: #ef4444; color: white; }
+
+        .panel {
+            display: flex;
+            gap: 20px;
+            padding: 10px;
+        }
+
+        .card {
+            background: #111827;
+            padding: 10px;
+            border-radius: 6px;
+            width: 300px;
+        }
+
+        input {
+            width: 100%;
+            margin: 5px 0;
+        }
+
+        #graph {
+            height: 70vh;
+        }
+
+    </style>
+
+</head>
+
+<body>
+
+    <!-- TOP BAR -->
+    <div class="topbar">
+
+        <button class="start" onclick="start()">START</button>
+        <button class="stop" onclick="stop()">STOP</button>
+
+        <span id="status">Status: idle</span>
+
+    </div>
+
+    <!-- CONTROL PANEL -->
+    <div class="panel">
+
+        <div class="card">
+
+            <h3>Signal Control</h3>
+
+            <label>Frequency</label>
+            <input id="freq" type="number" step="0.1" value="0.2">
+
+            <label>Amplitude</label>
+            <input id="amp" type="number" value="90">
+
+            <button onclick="updateSignal()">Update Signal</button>
+
+        </div>
+
+        <div class="card">
+
+            <h3>Sampling</h3>
+
+            <label>Rate (Hz)</label>
+            <input id="rate" type="number" value="20">
+
+            <button onclick="updateSampling()">Update Sampling</button>
+
+        </div>
+
+        <div class="card">
+
+            <h3>Query System</h3>
+
+            <label>Start Time</label>
+            <input id="start" type="number">
+
+            <label>End Time</label>
+            <input id="end" type="number">
+
+            <button onclick="runQuery()">Run Query</button>
+
+        </div>
+
+    </div>
+
+    <!-- GRAPH -->
+    <div id="graph"></div>
+
+<script>
+
+    // =========================
+    // CONTROL ACTIONS
+    // =========================
+
+    function start() {
+        fetch("/start");
+        document.getElementById("status").innerText = "Status: running";
+    }
+
+    function stop() {
+        fetch("/stop");
+        document.getElementById("status").innerText = "Status: stopped";
+    }
+
+    function updateSignal() {
+
+        const freq = document.getElementById("freq").value;
+        const amp = document.getElementById("amp").value;
+
+        fetch(`/set?freq=${freq}&amp=${amp}`);
+    }
+
+    function updateSampling() {
+
+        const rate = document.getElementById("rate").value;
+
+        fetch(`/sampling?rate=${rate}`);
+    }
+
+    async function runQuery() {
+
+        const start = document.getElementById("start").value;
+        const end = document.getElementById("end").value;
+
+        const res = await fetch(`/query?start=${start}&end=${end}`);
+        const data = await res.json();
+
+        console.log("QUERY RESULT:", data);
+
+        alert(`Returned ${data.length} samples`);
+    }
+
+    // =========================
+    // LIVE PLOT
+    // =========================
+
+    async function updateGraph() {
+
+        const res = await fetch("/data");
+        const data = await res.json();
+
+        if (!data || data.length === 0) return;
+
+        const t = data.map(d => d.timestamp);
+        const ideal = data.map(d => d.ideal);
+        const actual = data.map(d => d.measured);
+
+        const trace1 = {
+            x: t,
+            y: ideal,
+            mode: "lines",
+            name: "Ideal",
+            line: { color: "#38bdf8" }
+        };
+
+        const trace2 = {
+            x: t,
+            y: actual,
+            mode: "lines",
+            name: "Actual",
+            line: { color: "#f87171" }
+        };
+
+        Plotly.newPlot("graph", [trace1, trace2], {
+
+            title: "Hydrofoil SCADA Live System",
+
+            paper_bgcolor: "#0b1220",
+            plot_bgcolor: "#0b1220",
+
+            font: { color: "white" }
+
+        });
+    }
+
+    setInterval(updateGraph, 200);
+
+    updateGraph();
+
+</script>
+
+</body>
+</html>
+

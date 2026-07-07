@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hydrofoil-scada"
+version = "1.0.0"
+description = "SCADA framework for hydrofoil actuation and real-time control systems"
+authors = [{ name="Yatharth" }]
+dependencies = [
+    "flask",
+    "pyserial"
+]
+
+[tool.setuptools]
+packages = ["hydrofoil_scada"]
+
