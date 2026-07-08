@@ -87,4 +87,3 @@ class Historian:
     def clear(self):
 
         self.data.clear()
-

@@ -7,18 +7,14 @@ class HardwareInterface(ABC):
     def connect(self):
         pass
 
-
     @abstractmethod
     def write(self, value):
         pass
 
-
     @abstractmethod
     def read(self):
-        return None
-
+        pass
 
     @abstractmethod
     def close(self):
         pass
-

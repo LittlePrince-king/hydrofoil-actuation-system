@@ -1,114 +1,73 @@
 import time
-import threading
+import math
 
-from .signals import SineWave
-from .historian import Historian
-from .hardware import ArduinoDriver
-from .sim_driver import SimDriver
+from .device.driver import ArduinoDriver
+from .device.sim_driver import SimDriver
+from .transport.serial import SerialTransport
 
 
 class SCADA:
+    """
+    Procedure/control layer.
 
-    def __init__(self, port="COM3", baud=115200, mode="auto"):
+    User calls:
+        SCADA.startservo()
 
-        self.port = port
-        self.baud = baud
-        self.mode = mode
+    Internal:
+        SCADA
+          -> Driver
+          -> Protocol
+          -> Transport
+          -> Arduino
+    """
 
-        # hardware
-        try:
-            self.hardware = ArduinoDriver(port=port, baud=baud)
-            self.hardware.connect()
-        except:
-            self.hardware = SimDriver()
-            self.hardware.connect()
+    def __init__(self, hardware=None):
 
-        self.signal = SineWave(amplitude=90, frequency=0.2)
-        self.historian = Historian()
+        if hardware:
+            self.hardware = hardware
 
-        self.running = False
-        self.dt = 1 / 20
+        else:
+            try:
+                transport = SerialTransport.auto_detect()
+                self.hardware = ArduinoDriver(transport)
 
-        # IMPORTANT: prevent duplicate threads in Flask reload
-        self.thread_started = False
+            except Exception:
+                print("[AUTO DETECT FAILED]", e)
+                self.hardware = SimDriver()
 
-        self.thread = threading.Thread(target=self._loop, daemon=True)
+        self.hardware.connect()
 
-    # SAFE START (prevents duplicate loop)
-    def start(self):
-        self.running = True
 
-        if not self.thread_started:
-            self.thread.start()
-            self.thread_started = True
+    def startservo(
+        self,
+        amplitude=45,
+        duration=10,
+        min_angle=45,
+        max_angle=135,
+        frequency=0.2
+    ):
 
-    def stop(self):
-        self.running = False
-
-    # CONTROL LOOP (NO PRINTS ALLOWED)
-    def _loop(self):
-
-        while True:
-
-            if self.running:
-
-                t = time.time()
-
-                ideal = self.signal.value(t)
-                commanded = ideal
-
-                try:
-                    self.hardware.write(commanded)
-                    measured = self.hardware.read()
-                    if measured is None:
-                        measured = commanded
-                except:
-                    measured = commanded
-
-                self.historian.log(
-                    timestamp=t,
-                    ideal=ideal,
-                    commanded=commanded,
-                    measured=measured
-                )
-
-            time.sleep(self.dt)
-
-    def set_signal(self, freq=None, amp=None):
-        if freq is not None:
-            self.signal.frequency = freq
-        if amp is not None:
-            self.signal.amplitude = amp
-
-    def set_sampling(self, rate):
-        self.dt = 1.0 / rate
-
-    def data(self, n=1000):
-        return self.historian.latest(n)
-
-    def query(self, start, end):
-        return self.historian.query(start, end)
-
-    def run_procedure(self, amplitude=90, frequency=0.2, duration=10, sampling=20):
-
-        self.set_signal(freq=frequency, amp=amplitude)
-        self.set_sampling(sampling)
-
-        self.start()
+        center = (min_angle + max_angle) / 2
 
         start_time = time.time()
 
         while time.time() - start_time < duration:
+
+            t = time.time() - start_time
+
+            angle = (
+                center
+                + amplitude * math.sin(
+                    2 * math.pi * frequency * t
+                )
+            )
+
+            self.hardware.write(angle)
+
+            print(f"[SERVO] {angle:.1f}")
+
             time.sleep(0.05)
 
-        self.stop()
-
-        return self.query(start_time, time.time())
 
     def close(self):
-        self.running = False
-        try:
-            self.hardware.close()
-        except:
-            pass
-
+        self.hardware.close()
